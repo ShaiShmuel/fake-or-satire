@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Fake news detector</title>
+	<link rel="stylesheet" type="text/css" href="../static/style.css">
+</head>
+<body>
+
+	<h1>Fake News? or it just satire...</h1>
+	<p>Fill out the form below and let our model decide</p>
+
+	<div class="ml-container">
+
+	<form action="{{ url_for('predict')}}" method="POST">
+		<p>Enter Your News Here</p>
+		<!-- <input type="text" name="comment"/> -->
+		<textarea name="message" rows="4" cols="50"></textarea>
+		<br/>
+
+		<input type="submit" class="btn-info" value="predict">
+		
+	</form>
+		
+	</div>
+
+	
+	
+
+</body>
+</html>
