@@ -2,7 +2,7 @@
 from flask import Flask,render_template,url_for,request
 # import tensorflow as tf
 from sentence_transformers import SentenceTransformer
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 import pandas as pd
 import numpy as np
@@ -25,7 +25,7 @@ class NewsDetector:
 
 
         # load lodistic regression model
-        self.linear_reg = LinearRegression()
+        self.log_reg = LogisticRegression(solver='liblinear', class_weight='balanced' )
 
         # load news data
         self.__df_fake = self.__read_txt_files(fake_data_path, self.fake_classification)
@@ -35,17 +35,15 @@ class NewsDetector:
         print(self.__df_data)
 
     def split(self, test_size):
-        X = np.array(self.__df_data.loc[:, self.__df_data.columns != 'class'])
-        y = np.array(self.__df_data['class'])
+        X = self.__df_data.loc[:, self.__df_data.columns != 'class']
+        y = self.__df_data[['class']]
 
         # Split to train and test 
-        self.__X_train, self.__X_test, self.__y_train, self.__y_test = train_test_split(X, y, test_size = test_size, random_state = 42)
+        self.__X_train, self.X_test, self.__y_train, self.y_test = train_test_split(X, y, test_size = test_size, random_state = 42)
 
     def fit(self):
-        # self.__X_train = self.__X_train.values
-        # self.__X_train = np.vstack(self.__X_train[:][:])
-        # print(type(self.__X_train))
-        self.model = self.linear_reg.fit(self.__X_train, self.__y_train)
+
+        self.model = self.log_reg.fit(self.__X_train, np.ravel(self.__y_train))
 
     def predict(self, news_text):
         embd_text = self.sbert.encode(news_text)
@@ -55,10 +53,11 @@ class NewsDetector:
             cols.append(column_name)
 
         # Return DataFrame with the encoded text and class
-        df_pred = pd.DataFrame(data = embd_text , columns=cols)
+        df_pred = pd.DataFrame(data = [embd_text] , columns=cols)
 
+        # print(df_pred)
+        result = self.log_reg.predict(df_pred)
 
-        result = self.linear_reg.predict(df_pred)
         return result    
 
 
@@ -78,6 +77,7 @@ class NewsDetector:
                 # Check if the file is empty
                 if text:
                     # Append the encoded text to the list
+                    # texts.append(text)
                     texts.append(self.sbert.encode(text))
         
         vector_length = len(texts[0])
@@ -88,6 +88,8 @@ class NewsDetector:
 
         # Return DataFrame with the encoded text and class
         df = pd.DataFrame(data = texts , columns=columns)
+        # df = pd.DataFrame(data = texts , columns=['text'])
+
         df['class'] = binary_classification
 
         return df
@@ -98,26 +100,23 @@ def home():
 
 @app.route('/predict',methods=['POST','GET'])
 def predict():
-    # load_options = tf.saved_model.LoadOptions(experimental_io_device='/job:localhost')
-    # reloaded_model = tf.keras.models.load_model('FakeNewsData_bert', options=load_options)
-    # txt = []
-    # txt.append(str(request.form.get('txt', "")))
-    # my_prediction = tf.sigmoid(reloaded_model(tf.constant(txt)))
-    # model = NewsDetector('FakeNewsData/StoryText 2/Fake/finalFake', 'FakeNewsData/StoryText 2/Satire/finalSatire')
-    # model.split(0.3)
-    # model.fit()
-    # print(model.predict('this is a fake news text'))
 
-    return render_template('result.html',prediction = round(float(my_prediction)))
+    txt = request.form.get('txt', "")
+    my_prediction  = model.predict(txt)
+
+    return render_template('results.html',prediction = my_prediction[0])
 
 
 
 if __name__ == '__main__':
     print("Starting server...")
-    # app.run(port=4000, host='0.0.0.0', debug=True)
 
     model = NewsDetector('FakeNewsData/StoryText 2/Fake/finalFake', 'FakeNewsData/StoryText 2/Satire/finalSatire')
     model.split(0.3)
     model.fit()
     print(model.predict('this is a fake news text'))
+    print("accuracy: ", model.log_reg.score(model.X_test, model.y_test))
+
+    app.run(port=4000, host='0.0.0.0', debug=True)
+
     
